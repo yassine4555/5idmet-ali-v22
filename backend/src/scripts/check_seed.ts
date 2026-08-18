@@ -1,0 +1,55 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as mongoose from 'mongoose';
+
+function loadEnv(envPath: string) {
+  if (!fs.existsSync(envPath)) return;
+  const content = fs.readFileSync(envPath, 'utf8');
+  content.split(/\r?\n/).forEach((line) => {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+    if (!m) return;
+    let [, key, val] = m;
+    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+    if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
+    process.env[key] = val;
+  });
+}
+
+async function main() {
+  loadEnv(path.resolve(__dirname, '..', '..', '.env'));
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error('MONGODB_URI not found.');
+    process.exit(1);
+  }
+
+  await mongoose.connect(uri, { dbName: 'edupro' });
+  const conn = mongoose.connection;
+
+  const collections = ['users', 'studentprofiles', 'classgroups', 'grades', 'timetableentries', 'invoices', 'institutions'];
+
+  for (const c of collections) {
+    try {
+      const count = await conn.collection(c).countDocuments();
+      console.log(`${c}: ${count}`);
+    } catch (err) {
+      console.log(`${c}: error - ${(err as any).message}`);
+    }
+  }
+
+  // users by role
+  try {
+    const usersCollection = conn.collection('users');
+    const studentCount = await usersCollection.countDocuments({ role: 'STUDENT' });
+    const teacherCount = await usersCollection.countDocuments({ role: 'TEACHER' });
+    const adminCount = await usersCollection.countDocuments({ role: 'SUPER_ADMIN' });
+    console.log(`users by role -> STUDENT: ${studentCount}, TEACHER: ${teacherCount}, SUPER_ADMIN: ${adminCount}`);
+  } catch (err) {
+    console.log('users by role: error -', (err as any).message);
+  }
+
+  await mongoose.disconnect();
+  process.exit(0);
+}
+
+main().catch((err) => { console.error('check failed', err); process.exit(1); });
