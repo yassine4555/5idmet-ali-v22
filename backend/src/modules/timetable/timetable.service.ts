@@ -11,22 +11,46 @@ export class TimetableService {
     const q: any = {};
     if (filter.classId && Types.ObjectId.isValid(filter.classId)) q.classId = new Types.ObjectId(filter.classId);
     if (filter.teacherId && Types.ObjectId.isValid(filter.teacherId)) q.teacherId = new Types.ObjectId(filter.teacherId);
-    return this.timetableModel.find(q).lean().exec();
+
+    return this.timetableModel
+      .find(q)
+      .populate('classId', 'name level')
+      .populate('teacherId', 'firstName lastName email')
+      .lean()
+      .exec();
   }
 
   async get(id: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid timetable entry ID');
-    const e = await this.timetableModel.findById(id).lean().exec();
+    const e = await this.timetableModel
+      .findById(id)
+      .populate('classId', 'name level')
+      .populate('teacherId', 'firstName lastName email')
+      .lean()
+      .exec();
     if (!e) throw new NotFoundException('Timetable entry not found');
     return e;
   }
 
-  async create(dto: { classId: string; teacherId: string; subject: string; startTime: string; endTime: string; location?: string; notes?: string }) {
+  async create(dto: {
+    classId: string;
+    teacherId: string;
+    subject: string;
+    startTime: string;
+    endTime: string;
+    location?: string;
+    notes?: string;
+    institutionId?: string;
+  }) {
     if (!Types.ObjectId.isValid(dto.classId)) throw new BadRequestException('Invalid class ID');
     if (!Types.ObjectId.isValid(dto.teacherId)) throw new BadRequestException('Invalid teacher ID');
 
+    const institutionId = dto.institutionId && Types.ObjectId.isValid(dto.institutionId)
+      ? new Types.ObjectId(dto.institutionId)
+      : new Types.ObjectId('000000000000000000000001');
+
     const entry = await this.timetableModel.create({
-      institutionId: new Types.ObjectId('000000000000000000000001'),
+      institutionId,
       classId: new Types.ObjectId(dto.classId),
       teacherId: new Types.ObjectId(dto.teacherId),
       subject: dto.subject,

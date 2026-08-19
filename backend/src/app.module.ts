@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { StudentsModule } from './modules/students/students.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
@@ -11,6 +12,7 @@ import { TeachersModule } from './modules/teachers/teachers.module';
 import { GradesModule } from './modules/grades/grades.module';
 import { TimetableModule } from './modules/timetable/timetable.module';
 import { ClassesModule } from './modules/classes/classes.module';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -37,6 +39,12 @@ import { ClassesModule } from './modules/classes/classes.module';
     TimetableModule,
     FinanceModule,
     IntegrationModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
   ],
 })
 export class AppModule {}

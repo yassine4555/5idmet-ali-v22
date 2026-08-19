@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { StudentProfile } from '../../schemas/student-profile.schema';
 import { User, UserRole } from '../../schemas/user.schema';
+import { ClassGroup } from '../../schemas/class-group.schema';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
@@ -12,6 +13,7 @@ export class StudentsService {
   constructor(
     @InjectModel(StudentProfile.name) private studentProfileModel: Model<StudentProfile>,
     @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(ClassGroup.name) private classGroupModel: Model<ClassGroup>,
     private configService: ConfigService,
   ) {}
 
@@ -38,9 +40,16 @@ export class StudentsService {
 
     return users.map((u) => {
       const p = profileMap.get((u._id as any).toString());
+
+      // ─── Filter by classId using StudentProfile.currentClassId ───
+      if (query.classId && Types.ObjectId.isValid(query.classId)) {
+        if (!p?.currentClassId || p.currentClassId.toString() !== query.classId) return null;
+      }
+
       const gradeLevel = p?.academicInfo?.currentGradeLevel || 'Non assigné';
       const matchesLevel = !query.level || gradeLevel.includes(query.level);
       if (!matchesLevel) return null;
+
       return {
         id: u._id,
         firstName: u.firstName,
@@ -51,6 +60,7 @@ export class StudentsService {
         avatarUrl: u.avatarUrl,
         registrationId: p?.studentRegistrationId || `EDU-${(u._id as any).toString().slice(-6).toUpperCase()}`,
         currentGradeLevel: gradeLevel,
+        currentClassId: p?.currentClassId || null,
         gpa: p?.academicInfo?.currentGPA || 0,
         paymentStatus: p?.financialInfo?.accountBalance != null && (p.financialInfo.accountBalance as number) < 0 ? 'OVERDUE' : 'PAID',
       };
@@ -141,6 +151,7 @@ export class StudentsService {
     lastName?: string;
     phone?: string;
     status?: string;
+    currentClassId?: string | null;
     personalInfo?: any;
     academicInfo?: any;
     medicalInfo?: any;
@@ -163,6 +174,30 @@ export class StudentsService {
     if (dto.medicalInfo) profileUpdate.medicalInfo = dto.medicalInfo;
     if (dto.financialInfo) profileUpdate.financialInfo = dto.financialInfo;
 
+    // ─── Enrollment: update currentClassId and sync ClassGroup.studentIds ───
+    if (dto.currentClassId !== undefined) {
+      const oldProfile = await this.studentProfileModel.findOne({ userId }).select('currentClassId').lean().exec();
+      const oldClassId = oldProfile?.currentClassId?.toString();
+      const newClassId = dto.currentClassId && Types.ObjectId.isValid(dto.currentClassId) ? dto.currentClassId : null;
+
+      if (oldClassId && oldClassId !== newClassId) {
+        // Remove from old class's studentIds
+        await this.classGroupModel.findByIdAndUpdate(oldClassId, {
+          $pull: { studentIds: new Types.ObjectId(userId) },
+        }).exec();
+      }
+
+      if (newClassId) {
+        profileUpdate.currentClassId = new Types.ObjectId(newClassId);
+        // Add to new class's studentIds (avoid duplicates with $addToSet)
+        await this.classGroupModel.findByIdAndUpdate(newClassId, {
+          $addToSet: { studentIds: new Types.ObjectId(userId) },
+        }).exec();
+      } else {
+        profileUpdate.currentClassId = null;
+      }
+    }
+
     const profile = await this.studentProfileModel.findOneAndUpdate(
       { userId },
       { $set: profileUpdate },
@@ -176,10 +211,20 @@ export class StudentsService {
   async deleteStudent(userId: string) {
     if (!Types.ObjectId.isValid(userId)) throw new BadRequestException('Invalid student ID');
 
+    // Get profile first to find current class before deleting
+    const profile = await this.studentProfileModel.findOne({ userId }).select('currentClassId').lean().exec();
+
     const user = await this.userModel.findByIdAndDelete(userId).exec();
     if (!user) throw new NotFoundException('Student not found');
 
     await this.studentProfileModel.findOneAndDelete({ userId }).exec();
+
+    // Cascade: remove this student from their class's studentIds array
+    if (profile?.currentClassId) {
+      await this.classGroupModel.findByIdAndUpdate(profile.currentClassId, {
+        $pull: { studentIds: new Types.ObjectId(userId) },
+      }).exec();
+    }
 
     return { message: `Student ${user.firstName} ${user.lastName} deleted successfully` };
   }

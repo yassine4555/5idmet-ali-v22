@@ -1,12 +1,14 @@
 import { Model, Types } from 'mongoose';
 import { StudentProfile } from '../../schemas/student-profile.schema';
 import { User } from '../../schemas/user.schema';
+import { ClassGroup } from '../../schemas/class-group.schema';
 import { ConfigService } from '@nestjs/config';
 export declare class StudentsService {
     private studentProfileModel;
     private userModel;
+    private classGroupModel;
     private configService;
-    constructor(studentProfileModel: Model<StudentProfile>, userModel: Model<User>, configService: ConfigService);
+    constructor(studentProfileModel: Model<StudentProfile>, userModel: Model<User>, classGroupModel: Model<ClassGroup>, configService: ConfigService);
     findAll(query: {
         search?: string;
         status?: string;
@@ -22,6 +24,7 @@ export declare class StudentsService {
         avatarUrl: string;
         registrationId: string;
         currentGradeLevel: string;
+        currentClassId: Types.ObjectId;
         gpa: number;
         paymentStatus: string;
     }[]>;
@@ -71,6 +74,7 @@ export declare class StudentsService {
         lastName?: string;
         phone?: string;
         status?: string;
+        currentClassId?: string | null;
         personalInfo?: any;
         academicInfo?: any;
         medicalInfo?: any;

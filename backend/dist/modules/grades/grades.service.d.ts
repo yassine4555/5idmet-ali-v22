@@ -27,6 +27,7 @@ export declare class GradesService {
         teacherId?: string;
         date?: string;
         comment?: string;
+        institutionId?: string;
     }): Promise<{
         message: string;
         grade: import("mongoose").Document<unknown, {}, Grade, {}, {}> & Grade & Required<{

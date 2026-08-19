@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Send, FileText, BellRing, Loader2, AlertCircle, Trash2, RefreshCw, Plus } from 'lucide-react';
-import { financeApi } from '../api/client';
+import { financeApi, studentsApi } from '../api/client';
 
 export const FinanceManager: React.FC = () => {
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
@@ -19,12 +20,14 @@ export const FinanceManager: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [inv, sum] = await Promise.all([
+      const [inv, sum, stList] = await Promise.all([
         financeApi.listInvoices(selectedFilter !== 'ALL' ? selectedFilter : undefined),
         financeApi.summary(),
+        studentsApi.list(),
       ]);
       setInvoices(inv);
       setSummary(sum);
+      setStudents(stList);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Erreur de chargement des données financières');
     } finally {
@@ -129,7 +132,7 @@ export const FinanceManager: React.FC = () => {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Finance & Encaissements (2d)</h2>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Finance & Encaissements</h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Facturation, paiements et relances — connecté à MongoDB Atlas</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -147,8 +150,20 @@ export const FinanceManager: React.FC = () => {
         <form onSubmit={handleCreateInvoice} className="card-glass animate-fade-in" style={{ padding: 20, marginBottom: 20 }}>
           <h3 style={{ fontWeight: 800, marginBottom: 16, fontSize: '1rem' }}>📄 Nouvelle Facture</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
-            <input required placeholder="ID Étudiant (MongoDB _id) *" value={newInvoice.studentId} onChange={(e) => setNewInvoice({ ...newInvoice, studentId: e.target.value })}
-              style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface-elevated)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }} />
+            <select
+              required
+              value={newInvoice.studentId}
+              onChange={(e) => setNewInvoice({ ...newInvoice, studentId: e.target.value })}
+              style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface-elevated)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }}
+            >
+              <option value="">Sélectionner un étudiant *</option>
+              {students.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.firstName} {st.lastName} ({st.email})
+                </option>
+              ))}
+            </select>
+
             <input required placeholder="Objet / Description *" value={newInvoice.description} onChange={(e) => setNewInvoice({ ...newInvoice, description: e.target.value })}
               style={{ padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface-elevated)', color: 'var(--text-main)', fontSize: '0.85rem', outline: 'none' }} />
             <input required type="number" placeholder="Montant Total (€) *" value={newInvoice.totalAmount} onChange={(e) => setNewInvoice({ ...newInvoice, totalAmount: e.target.value })}

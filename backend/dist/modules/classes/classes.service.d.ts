@@ -1,8 +1,10 @@
 import { Model } from 'mongoose';
 import { ClassGroup } from '../../schemas/class-group.schema';
+import { StudentProfile } from '../../schemas/student-profile.schema';
 export declare class ClassesService {
     private classModel;
-    constructor(classModel: Model<ClassGroup>);
+    private studentProfileModel;
+    constructor(classModel: Model<ClassGroup>, studentProfileModel: Model<StudentProfile>);
     findAll(search?: string): Promise<any[]>;
     getById(id: string): Promise<any>;
     create(dto: {

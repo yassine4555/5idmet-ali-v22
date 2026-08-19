@@ -2,10 +2,14 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ClassGroup } from '../../schemas/class-group.schema';
+import { StudentProfile } from '../../schemas/student-profile.schema';
 
 @Injectable()
 export class ClassesService {
-  constructor(@InjectModel(ClassGroup.name) private classModel: Model<ClassGroup>) {}
+  constructor(
+    @InjectModel(ClassGroup.name) private classModel: Model<ClassGroup>,
+    @InjectModel(StudentProfile.name) private studentProfileModel: Model<StudentProfile>,
+  ) {}
 
   async findAll(search?: string): Promise<any[]> {
     const query: any = {};
@@ -17,7 +21,12 @@ export class ClassesService {
       ];
     }
 
-    const classes = await this.classModel.find(query).lean().exec();
+    const classes = await this.classModel
+      .find(query)
+      .populate('mainTeacherId', 'firstName lastName email')
+      .lean()
+      .exec();
+
     return classes.map((classGroup) => ({
       ...classGroup,
       studentCount: classGroup.studentIds?.length || 0,
@@ -26,11 +35,28 @@ export class ClassesService {
 
   async getById(id: string): Promise<any> {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid class ID');
-    const classGroup = await this.classModel.findById(id).lean().exec();
+    const classGroup = await this.classModel
+      .findById(id)
+      .populate('mainTeacherId', 'firstName lastName email')
+      .lean()
+      .exec();
     if (!classGroup) throw new NotFoundException('Class not found');
+
+    // Fetch students enrolled in this class from StudentProfile (source of truth)
+    const enrolledProfiles = await this.studentProfileModel
+      .find({ currentClassId: classGroup._id })
+      .populate('userId', 'firstName lastName email status')
+      .lean()
+      .exec();
+
     return {
       ...classGroup,
-      studentCount: classGroup.studentIds?.length || 0,
+      studentCount: enrolledProfiles.length,
+      students: enrolledProfiles.map((p) => ({
+        profileId: p._id,
+        userId: p.userId,
+        registrationId: p.studentRegistrationId,
+      })),
     };
   }
 
@@ -63,6 +89,14 @@ export class ClassesService {
       studentIds,
     });
 
+    // Sync StudentProfile.currentClassId for initially enrolled students
+    if (studentIds.length > 0) {
+      await this.studentProfileModel.updateMany(
+        { userId: { $in: studentIds } },
+        { $set: { currentClassId: classGroup._id } },
+      ).exec();
+    }
+
     return { message: 'Class created', classGroup };
   }
 
@@ -78,19 +112,53 @@ export class ClassesService {
   ): Promise<{ message: string; classGroup: any }> {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid class ID');
 
-    const payload: any = { ...dto };
+    const payload: any = {};
+    if (dto.name !== undefined) payload.name = dto.name;
+    if (dto.level !== undefined) payload.level = dto.level;
+    if (dto.academicYear !== undefined) payload.academicYear = dto.academicYear;
+
     if (dto.mainTeacherId !== undefined) {
       payload.mainTeacherId = Types.ObjectId.isValid(dto.mainTeacherId)
         ? new Types.ObjectId(dto.mainTeacherId)
         : null;
     }
+
     if (dto.studentIds !== undefined) {
-      payload.studentIds = dto.studentIds
-        .filter((studentId) => Types.ObjectId.isValid(studentId))
-        .map((studentId) => new Types.ObjectId(studentId));
+      const newStudentIds = dto.studentIds
+        .filter((sid) => Types.ObjectId.isValid(sid))
+        .map((sid) => new Types.ObjectId(sid));
+
+      payload.studentIds = newStudentIds;
+
+      // Get the old student list to compute diff
+      const existing = await this.classModel.findById(id).select('studentIds').lean().exec();
+      const oldIds = (existing?.studentIds || []).map((sid: any) => sid.toString());
+      const newIds = newStudentIds.map((sid) => sid.toString());
+
+      const added = newIds.filter((sid) => !oldIds.includes(sid));
+      const removed = oldIds.filter((sid) => !newIds.includes(sid));
+
+      // Set currentClassId for newly added students
+      if (added.length > 0) {
+        await this.studentProfileModel.updateMany(
+          { userId: { $in: added.map((sid) => new Types.ObjectId(sid)) } },
+          { $set: { currentClassId: new Types.ObjectId(id) } },
+        ).exec();
+      }
+
+      // Clear currentClassId for removed students
+      if (removed.length > 0) {
+        await this.studentProfileModel.updateMany(
+          { userId: { $in: removed.map((sid) => new Types.ObjectId(sid)) }, currentClassId: new Types.ObjectId(id) },
+          { $unset: { currentClassId: '' } },
+        ).exec();
+      }
     }
 
-    const classGroup = await this.classModel.findByIdAndUpdate(id, { $set: payload }, { new: true }).lean().exec();
+    const classGroup = await this.classModel.findByIdAndUpdate(id, { $set: payload }, { new: true })
+      .populate('mainTeacherId', 'firstName lastName email')
+      .lean()
+      .exec();
     if (!classGroup) throw new NotFoundException('Class not found');
     return { message: 'Class updated', classGroup };
   }
@@ -99,6 +167,13 @@ export class ClassesService {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid class ID');
     const classGroup = await this.classModel.findByIdAndDelete(id).lean().exec();
     if (!classGroup) throw new NotFoundException('Class not found');
+
+    // Cascade: clear currentClassId for all students enrolled in this class
+    await this.studentProfileModel.updateMany(
+      { currentClassId: new Types.ObjectId(id) },
+      { $unset: { currentClassId: '' } },
+    ).exec();
+
     return { message: 'Class deleted', id };
   }
 }

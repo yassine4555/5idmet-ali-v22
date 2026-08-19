@@ -29,12 +29,24 @@ let GradesService = class GradesService {
             q.classId = new mongoose_2.Types.ObjectId(filter.classId);
         if (filter.subject)
             q.subject = filter.subject;
-        return this.gradeModel.find(q).lean().exec();
+        return this.gradeModel
+            .find(q)
+            .populate('studentId', 'firstName lastName email')
+            .populate('classId', 'name level')
+            .populate('teacherId', 'firstName lastName')
+            .lean()
+            .exec();
     }
     async get(id) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
             throw new common_1.BadRequestException('Invalid grade ID');
-        const g = await this.gradeModel.findById(id).lean().exec();
+        const g = await this.gradeModel
+            .findById(id)
+            .populate('studentId', 'firstName lastName email')
+            .populate('classId', 'name level')
+            .populate('teacherId', 'firstName lastName')
+            .lean()
+            .exec();
         if (!g)
             throw new common_1.NotFoundException('Grade not found');
         return g;
@@ -44,8 +56,11 @@ let GradesService = class GradesService {
             throw new common_1.BadRequestException('Invalid student ID');
         if (!mongoose_2.Types.ObjectId.isValid(dto.classId))
             throw new common_1.BadRequestException('Invalid class ID');
+        const institutionId = dto.institutionId && mongoose_2.Types.ObjectId.isValid(dto.institutionId)
+            ? new mongoose_2.Types.ObjectId(dto.institutionId)
+            : new mongoose_2.Types.ObjectId('000000000000000000000001');
         const grade = await this.gradeModel.create({
-            institutionId: new mongoose_2.Types.ObjectId('000000000000000000000001'),
+            institutionId,
             studentId: new mongoose_2.Types.ObjectId(dto.studentId),
             classId: new mongoose_2.Types.ObjectId(dto.classId),
             subject: dto.subject,

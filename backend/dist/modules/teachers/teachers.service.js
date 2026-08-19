@@ -18,10 +18,14 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const user_schema_1 = require("../../schemas/user.schema");
 const teacher_profile_schema_1 = require("../../schemas/teacher-profile.schema");
+const class_group_schema_1 = require("../../schemas/class-group.schema");
+const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 let TeachersService = class TeachersService {
-    constructor(userModel, teacherProfileModel) {
+    constructor(userModel, teacherProfileModel, classGroupModel) {
         this.userModel = userModel;
         this.teacherProfileModel = teacherProfileModel;
+        this.classGroupModel = classGroupModel;
     }
     async findAll(query) {
         const filter = { role: user_schema_1.UserRole.TEACHER };
@@ -33,14 +37,24 @@ let TeachersService = class TeachersService {
         const userIds = users.map((u) => u._id);
         const profiles = await this.teacherProfileModel.find({ userId: { $in: userIds } }).lean().exec();
         const profileMap = new Map(profiles.map((p) => [p.userId.toString(), p]));
+        const classes = await this.classGroupModel.find({ mainTeacherId: { $in: userIds } }).select('_id name mainTeacherId').lean().exec();
+        const classMap = new Map();
+        for (const cls of classes) {
+            const tid = cls.mainTeacherId.toString();
+            if (!classMap.has(tid))
+                classMap.set(tid, []);
+            classMap.get(tid).push({ id: cls._id, name: cls.name });
+        }
         return users.map((u) => ({
             id: u._id,
             firstName: u.firstName,
             lastName: u.lastName,
             email: u.email,
             phone: u.phone,
+            status: u.status,
             avatarUrl: u.avatarUrl,
             profile: profileMap.get(u._id.toString()) || null,
+            assignedClasses: classMap.get(u._id.toString()) || [],
         }));
     }
     async getById(id) {
@@ -50,19 +64,22 @@ let TeachersService = class TeachersService {
         if (!user)
             throw new common_1.NotFoundException('Teacher not found');
         const profile = await this.teacherProfileModel.findOne({ userId: user._id }).lean().exec();
-        return { user, profile };
+        const assignedClasses = await this.classGroupModel.find({ mainTeacherId: user._id }).select('_id name level academicYear').lean().exec();
+        return { user, profile, assignedClasses };
     }
     async createTeacher(dto) {
         const existing = await this.userModel.findOne({ email: dto.email.toLowerCase() }).exec();
         if (existing)
             throw new common_1.BadRequestException('A user with this email already exists');
         const institutionId = mongoose_2.Types.ObjectId.isValid(dto.institutionId) ? new mongoose_2.Types.ObjectId(dto.institutionId) : new mongoose_2.Types.ObjectId('000000000000000000000001');
+        const plainPassword = crypto.randomBytes(6).toString('hex');
+        const passwordHash = await bcrypt.hash(plainPassword, 10);
         const user = await this.userModel.create({
             institutionId,
             firstName: dto.firstName,
             lastName: dto.lastName,
             email: dto.email.toLowerCase(),
-            passwordHash: 'REPLACE_ME',
+            passwordHash,
             role: user_schema_1.UserRole.TEACHER,
             phone: dto.phone,
             status: 'ACTIVE',
@@ -74,7 +91,12 @@ let TeachersService = class TeachersService {
             professionalInfo: dto.professionalInfo || {},
             personalInfo: dto.personalInfo || {},
         });
-        return { message: 'Teacher created', user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email }, profile };
+        return {
+            message: 'Teacher created',
+            tempPassword: plainPassword,
+            user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
+            profile,
+        };
     }
     async updateTeacher(id, dto) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
@@ -106,6 +128,7 @@ let TeachersService = class TeachersService {
         if (!user)
             throw new common_1.NotFoundException('Teacher not found');
         await this.teacherProfileModel.findOneAndDelete({ userId: id }).exec();
+        await this.classGroupModel.updateMany({ mainTeacherId: new mongoose_2.Types.ObjectId(id) }, { $unset: { mainTeacherId: '' } }).exec();
         return { message: `Teacher ${user.firstName} ${user.lastName} deleted` };
     }
 };
@@ -114,7 +137,9 @@ exports.TeachersService = TeachersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
     __param(1, (0, mongoose_1.InjectModel)(teacher_profile_schema_1.TeacherProfile.name)),
+    __param(2, (0, mongoose_1.InjectModel)(class_group_schema_1.ClassGroup.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model])
 ], TeachersService);
 //# sourceMappingURL=teachers.service.js.map

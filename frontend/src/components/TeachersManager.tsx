@@ -22,6 +22,7 @@ export const TeachersManager: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -82,6 +83,7 @@ export const TeachersManager: React.FC = () => {
         email: teacher.email || '—',
         phone: teacher.phone || '—',
         subjects: (teacher.profile?.professionalInfo?.subjects || []).join(', ') || '—',
+        assignedClasses: (teacher.assignedClasses || []).map((c: any) => c.name).join(', ') || '—',
       })),
     [teachers],
   );
@@ -92,14 +94,16 @@ export const TeachersManager: React.FC = () => {
     const subjects = form.subjects.split(',').map((v) => v.trim()).filter(Boolean);
     try {
       setSaving(true);
+      setTempPassword(null);
       if (creating) {
-        await teachersApi.create({
+        const result = await teachersApi.create({
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
           phone: form.phone || undefined,
           professionalInfo: { subjects },
         });
+        if (result.tempPassword) setTempPassword(result.tempPassword);
       } else if (editingId) {
         await teachersApi.update(editingId, {
           firstName: form.firstName,
@@ -155,6 +159,14 @@ export const TeachersManager: React.FC = () => {
         </div>
       )}
 
+      {tempPassword && (
+        <div style={{ padding: '12px 14px', marginBottom: 14, border: '1px solid var(--success-500, #22c55e)', background: 'var(--success-light, #f0fdf4)', borderRadius: 'var(--radius-md)', color: 'var(--success-700, #15803d)' }}>
+          <strong>✅ Enseignant créé.</strong> Mot de passe temporaire : <code style={{ background: '#dcfce7', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>{tempPassword}</code>
+          <span style={{ marginLeft: 8, fontSize: '0.8rem' }}>Communiquez-le à l'enseignant pour sa première connexion.</span>
+          <button type="button" style={{ marginLeft: 12, fontSize: '0.78rem', cursor: 'pointer', background: 'none', border: 'none', textDecoration: 'underline', color: 'inherit' }} onClick={() => setTempPassword(null)}>Fermer</button>
+        </div>
+      )}
+
       <div className="card-glass" style={{ padding: 16, marginBottom: 14, display: 'grid', gridTemplateColumns: '1fr auto', gap: 10 }}>
         <input placeholder="Rechercher un enseignant..." value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
         <span className="badge badge-primary">{rows.length} enseignant(s)</span>
@@ -196,6 +208,7 @@ export const TeachersManager: React.FC = () => {
                 <th style={{ padding: '12px 14px', textAlign: 'left' }}>Email</th>
                 <th style={{ padding: '12px 14px', textAlign: 'left' }}>Téléphone</th>
                 <th style={{ padding: '12px 14px', textAlign: 'left' }}>Matières</th>
+                <th style={{ padding: '12px 14px', textAlign: 'left' }}>Classes assignées</th>
                 <th style={{ padding: '12px 14px', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -206,6 +219,7 @@ export const TeachersManager: React.FC = () => {
                   <td style={{ padding: '12px 14px' }}>{row.email}</td>
                   <td style={{ padding: '12px 14px' }}>{row.phone}</td>
                   <td style={{ padding: '12px 14px' }}>{row.subjects}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{row.assignedClasses}</td>
                   <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                     <div style={{ display: 'inline-flex', gap: 8 }}>
                       <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => beginEdit(teachers.find((t) => getId(t) === row.id))}>Modifier</button>

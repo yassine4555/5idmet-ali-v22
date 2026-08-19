@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const event_emitter_1 = require("@nestjs/event-emitter");
+const core_1 = require("@nestjs/core");
 const auth_module_1 = require("./modules/auth/auth.module");
 const students_module_1 = require("./modules/students/students.module");
 const messaging_module_1 = require("./modules/messaging/messaging.module");
@@ -20,6 +21,7 @@ const teachers_module_1 = require("./modules/teachers/teachers.module");
 const grades_module_1 = require("./modules/grades/grades.module");
 const timetable_module_1 = require("./modules/timetable/timetable.module");
 const classes_module_1 = require("./modules/classes/classes.module");
+const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -48,6 +50,12 @@ exports.AppModule = AppModule = __decorate([
             timetable_module_1.TimetableModule,
             finance_module_1.FinanceModule,
             integration_module_1.IntegrationModule,
+        ],
+        providers: [
+            {
+                provide: core_1.APP_GUARD,
+                useClass: jwt_auth_guard_1.JwtAuthGuard,
+            },
         ],
     })
 ], AppModule);

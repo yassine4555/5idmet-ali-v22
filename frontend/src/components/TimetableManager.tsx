@@ -11,7 +11,7 @@ const inputStyle: React.CSSProperties = {
   fontSize: '0.86rem',
 };
 
-const getId = (v: any) => String(v?.id || v?._id || '');
+const getId = (v: any) => String(v?.id || v?._id || v || '');
 
 const toDatetimeLocal = (value: string | undefined) => {
   if (!value) return '';
@@ -84,8 +84,8 @@ export const TimetableManager: React.FC = () => {
   const startEdit = (entry: any) => {
     setEditingId(getId(entry));
     setForm({
-      classId: String(entry.classId || ''),
-      teacherId: String(entry.teacherId || ''),
+      classId: getId(entry.classId),
+      teacherId: getId(entry.teacherId),
       subject: entry.subject || '',
       startTime: toDatetimeLocal(entry.startTime),
       endTime: toDatetimeLocal(entry.endTime),
@@ -206,11 +206,15 @@ export const TimetableManager: React.FC = () => {
             <tbody>
               {entries.map((entry) => {
                 const id = getId(entry);
+                const className = entry.classId?.name || classMap.get(getId(entry.classId)) || getId(entry.classId);
+                const teacherName = entry.teacherId?.firstName
+                  ? `${entry.teacherId.firstName} ${entry.teacherId.lastName || ''}`.trim()
+                  : teacherMap.get(getId(entry.teacherId)) || getId(entry.teacherId);
                 return (
                   <tr key={id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 700 }}>{classMap.get(String(entry.classId)) || String(entry.classId)}</td>
+                    <td style={{ padding: '10px 12px', fontWeight: 700 }}>{className}</td>
                     <td style={{ padding: '10px 12px' }}>{entry.subject}</td>
-                    <td style={{ padding: '10px 12px' }}>{teacherMap.get(String(entry.teacherId)) || String(entry.teacherId)}</td>
+                    <td style={{ padding: '10px 12px' }}>{teacherName}</td>
                     <td style={{ padding: '10px 12px' }}>{entry.startTime ? new Date(entry.startTime).toLocaleString('fr-FR') : '—'}</td>
                     <td style={{ padding: '10px 12px' }}>{entry.endTime ? new Date(entry.endTime).toLocaleString('fr-FR') : '—'}</td>
                     <td style={{ padding: '10px 12px' }}>{entry.location || '—'}</td>

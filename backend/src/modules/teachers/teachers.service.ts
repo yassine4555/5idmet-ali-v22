@@ -3,12 +3,16 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User, UserRole } from '../../schemas/user.schema';
 import { TeacherProfile } from '../../schemas/teacher-profile.schema';
+import { ClassGroup } from '../../schemas/class-group.schema';
+import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class TeachersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(TeacherProfile.name) private teacherProfileModel: Model<TeacherProfile>,
+    @InjectModel(ClassGroup.name) private classGroupModel: Model<ClassGroup>,
   ) {}
 
   async findAll(query: { search?: string }) {
@@ -24,14 +28,25 @@ export class TeachersService {
     const profiles = await this.teacherProfileModel.find({ userId: { $in: userIds } }).lean().exec();
     const profileMap = new Map(profiles.map((p) => [p.userId.toString(), p]));
 
+    // Derive assigned classes from ClassGroup.mainTeacherId
+    const classes = await this.classGroupModel.find({ mainTeacherId: { $in: userIds } }).select('_id name mainTeacherId').lean().exec();
+    const classMap = new Map<string, any[]>();
+    for (const cls of classes) {
+      const tid = (cls.mainTeacherId as any).toString();
+      if (!classMap.has(tid)) classMap.set(tid, []);
+      classMap.get(tid).push({ id: cls._id, name: cls.name });
+    }
+
     return users.map((u) => ({
       id: u._id,
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
       phone: u.phone,
+      status: u.status,
       avatarUrl: u.avatarUrl,
       profile: profileMap.get((u._id as any).toString()) || null,
+      assignedClasses: classMap.get((u._id as any).toString()) || [],
     }));
   }
 
@@ -40,7 +55,8 @@ export class TeachersService {
     const user = await this.userModel.findById(id).select('-passwordHash').lean().exec();
     if (!user) throw new NotFoundException('Teacher not found');
     const profile = await this.teacherProfileModel.findOne({ userId: user._id }).lean().exec();
-    return { user, profile };
+    const assignedClasses = await this.classGroupModel.find({ mainTeacherId: user._id }).select('_id name level academicYear').lean().exec();
+    return { user, profile, assignedClasses };
   }
 
   async createTeacher(dto: { firstName: string; lastName: string; email: string; phone?: string; institutionId?: string; professionalInfo?: any; personalInfo?: any }) {
@@ -49,12 +65,16 @@ export class TeachersService {
 
     const institutionId = Types.ObjectId.isValid(dto.institutionId) ? new Types.ObjectId(dto.institutionId) : new Types.ObjectId('000000000000000000000001');
 
+    // Generate and hash a temporary password (same pattern as students)
+    const plainPassword = crypto.randomBytes(6).toString('hex');
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+
     const user = await this.userModel.create({
       institutionId,
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.email.toLowerCase(),
-      passwordHash: 'REPLACE_ME',
+      passwordHash,
       role: UserRole.TEACHER,
       phone: dto.phone,
       status: 'ACTIVE',
@@ -68,7 +88,12 @@ export class TeachersService {
       personalInfo: dto.personalInfo || {},
     });
 
-    return { message: 'Teacher created', user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email }, profile };
+    return {
+      message: 'Teacher created',
+      tempPassword: plainPassword,
+      user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email },
+      profile,
+    };
   }
 
   async updateTeacher(id: string, dto: any) {
@@ -95,6 +120,11 @@ export class TeachersService {
     const user = await this.userModel.findByIdAndDelete(id).exec();
     if (!user) throw new NotFoundException('Teacher not found');
     await this.teacherProfileModel.findOneAndDelete({ userId: id }).exec();
+    // Cascade: clear mainTeacherId from any classes that had this teacher as main teacher
+    await this.classGroupModel.updateMany(
+      { mainTeacherId: new Types.ObjectId(id) },
+      { $unset: { mainTeacherId: '' } },
+    ).exec();
     return { message: `Teacher ${user.firstName} ${user.lastName} deleted` };
   }
 }

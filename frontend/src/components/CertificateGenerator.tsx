@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
-import { Award, Download, Printer, ShieldCheck, FileCheck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Award, Download, Printer, ShieldCheck, FileCheck, Loader2 } from 'lucide-react';
+import { studentsApi } from '../api/client';
 
 export const CertificateGenerator: React.FC = () => {
-  const [selectedStudent, setSelectedStudent] = useState('Lucas Martin');
+  const [students, setStudents] = useState<any[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [certificateType, setCertificateType] = useState('CERTIFICATE_OF_ENROLLMENT');
   const [isGenerated, setIsGenerated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    studentsApi.list()
+      .then((stList) => {
+        setStudents(stList || []);
+        if (stList && stList.length > 0) {
+          setSelectedStudentId(stList[0].id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const currentStudentObj = students.find((s) => s.id === selectedStudentId);
+  const selectedStudentName = currentStudentObj
+    ? `${currentStudentObj.firstName} ${currentStudentObj.lastName}`
+    : 'Élève Sélectionné';
+  const selectedClass = currentStudentObj?.currentGradeLevel || 'Terminales S1';
 
   const handleGenerate = () => {
     setIsGenerated(true);
@@ -17,7 +38,7 @@ export const CertificateGenerator: React.FC = () => {
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Édition officielle et génération sécurisée de documents administratifs</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
         {/* Controls Card */}
         <div className="card-glass" style={{ padding: 20 }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: 16 }}>Configuration du Document</h3>
@@ -26,15 +47,21 @@ export const CertificateGenerator: React.FC = () => {
             <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>
               Élève Destinataire
             </label>
-            <select
-              value={selectedStudent}
-              onChange={(e) => setSelectedStudent(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface-elevated)', color: 'var(--text-main)', fontSize: '0.88rem' }}
-            >
-              <option value="Lucas Martin">Lucas Martin (Terminales S1)</option>
-              <option value="Sophie Bernard">Sophie Bernard (Terminales S1)</option>
-              <option value="Alexandre Moreau">Alexandre Moreau (1ère ES)</option>
-            </select>
+            {loading ? (
+              <div style={{ padding: 10, color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Chargement...</div>
+            ) : (
+              <select
+                value={selectedStudentId}
+                onChange={(e) => { setSelectedStudentId(e.target.value); setIsGenerated(false); }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-surface-elevated)', color: 'var(--text-main)', fontSize: '0.88rem' }}
+              >
+                {students.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.firstName} {st.lastName} ({st.currentGradeLevel || 'Sans classe'})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div style={{ marginBottom: 20 }}>
@@ -48,11 +75,11 @@ export const CertificateGenerator: React.FC = () => {
             >
               <option value="CERTIFICATE_OF_ENROLLMENT">Certificat de Scolarité Officiel</option>
               <option value="ATTENDANCE_ATTETSATION">Attestation de Présence & Assiduité</option>
-              <option value="HONOR_ROLL">Attestation de Réussite & Tableau d Honneur</option>
+              <option value="HONOR_ROLL">Attestation de Réussite & Tableau d'Honneur</option>
             </select>
           </div>
 
-          <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleGenerate}>
+          <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleGenerate} disabled={!selectedStudentId}>
             <Award size={18} /> Générer le Certificat (PDF)
           </button>
         </div>
@@ -71,11 +98,11 @@ export const CertificateGenerator: React.FC = () => {
               </h2>
 
               <p style={{ fontSize: '0.9rem', lineHeight: 1.6, marginBottom: 20 }}>
-                Le Directeur de l Établissement EDUPRO certifie que l élève <strong>{selectedStudent}</strong>, né(e) le 14/04/2008, est régulièrement inscrit(e) pour l année académique <strong>2026-2027</strong> en classe de <strong>Terminales S1</strong>.
+                Le Directeur de l'Établissement EDUPRO certifie que l'élève <strong>{selectedStudentName}</strong> (Matricule: {currentStudentObj?.registrationId || 'EDU-2026'}), est régulièrement inscrit(e) pour l'année académique <strong>2026-2027</strong> en classe de <strong>{selectedClass}</strong>.
               </p>
 
               <div style={{ fontSize: '0.78rem', color: '#64748B', fontFamily: 'monospace', marginBottom: 24 }}>
-                Signature Numérique Verifiée: SHA256-EDUPRO-9028371-VALID
+                Signature Numérique Vérifiée: SHA256-EDUPRO-9028371-VALID
               </div>
 
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>

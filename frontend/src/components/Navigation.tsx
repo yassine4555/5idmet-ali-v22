@@ -1,16 +1,18 @@
 import React from 'react';
 import { Home, Users, BookOpen, Calendar, MessageCircle, DollarSign, FileText, Moon, Sun } from 'lucide-react';
-
 import { NavLink, useNavigate } from 'react-router-dom';
+import { AuthModal } from './AuthModal';
 
 interface NavigationProps {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   activeRole: string;
   setActiveRole: (role: string) => void;
+  currentUser: any;
+  setCurrentUser: (user: any) => void;
 }
 
-export const Navigation: React.FC<NavigationProps> = ({ theme, setTheme, activeRole, setActiveRole }) => {
+export const Navigation: React.FC<NavigationProps> = ({ theme, setTheme, activeRole, setActiveRole, currentUser, setCurrentUser }) => {
   const navigate = useNavigate();
   const menu = [
     { id: 'dashboard', label: 'Tableau de bord', icon: Home, path: '/' },
@@ -47,17 +49,19 @@ export const Navigation: React.FC<NavigationProps> = ({ theme, setTheme, activeR
         })}
       </nav>
 
-      <div className="sidebar-footer">
-        <div style={{ marginBottom: 8 }}>
-          <select value={activeRole} onChange={(e) => setActiveRole(e.target.value)} className="role-select">
+      <div className="sidebar-footer" style={{ display: 'grid', gap: 10 }}>
+        <AuthModal currentUser={currentUser} setCurrentUser={setCurrentUser} />
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+          <select value={activeRole} onChange={(e) => setActiveRole(e.target.value)} className="role-select" style={{ fontSize: '0.78rem' }}>
             <option value="ADMIN">Admin</option>
             <option value="TEACHER">Enseignant</option>
             <option value="STUDENT">Étudiant</option>
             <option value="PARENT">Parent</option>
           </select>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>{theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}</button>
+          <button className="btn btn-secondary" style={{ padding: '6px 10px' }} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
         </div>
       </div>
     </aside>

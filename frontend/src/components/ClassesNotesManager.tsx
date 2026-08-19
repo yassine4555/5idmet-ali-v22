@@ -254,6 +254,7 @@ export const ClassesNotesManager: React.FC = () => {
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Nom</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Niveau</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Année</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Prof Principal</th>
                   <th style={{ padding: '10px 12px', textAlign: 'left' }}>Étudiants</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>Action</th>
                 </tr>
@@ -261,11 +262,16 @@ export const ClassesNotesManager: React.FC = () => {
               <tbody>
                 {classes.map((classGroup) => {
                   const id = getId(classGroup);
+                  const teacher = classGroup.mainTeacherId;
+                  const teacherName = teacher
+                    ? `${teacher.firstName || ''} ${teacher.lastName || ''}`.trim()
+                    : '—';
                   return (
                     <tr key={id} style={{ borderTop: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700 }}>{classGroup.name}</td>
                       <td style={{ padding: '10px 12px' }}>{classGroup.level}</td>
                       <td style={{ padding: '10px 12px' }}>{classGroup.academicYear}</td>
+                      <td style={{ padding: '10px 12px' }}>{teacherName}</td>
                       <td style={{ padding: '10px 12px' }}>{classGroup.studentCount || classGroup.studentIds?.length || 0}</td>
                       <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                         <button className="btn btn-secondary" style={{ padding: '6px 10px', color: 'var(--danger-500)', borderColor: 'var(--danger-500)' }} onClick={() => removeClass(id, classGroup.name)}>
@@ -301,8 +307,14 @@ export const ClassesNotesManager: React.FC = () => {
                   const isEditing = editingGradeId === id;
                   return (
                     <tr key={id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '10px 12px' }}>{studentMap.get(String(grade.studentId)) || String(grade.studentId)}</td>
-                      <td style={{ padding: '10px 12px' }}>{classMap.get(String(grade.classId)) || String(grade.classId)}</td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {(grade.studentId?.firstName
+                          ? `${grade.studentId.firstName} ${grade.studentId.lastName || ''}`.trim()
+                          : studentMap.get(String(grade.studentId))) || String(grade.studentId)}
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {(grade.classId?.name) || classMap.get(String(grade.classId)) || String(grade.classId)}
+                      </td>
                       <td style={{ padding: '10px 12px' }}>{grade.subject}</td>
                       <td style={{ padding: '10px 12px', fontWeight: 800 }}>
                         {isEditing ? (

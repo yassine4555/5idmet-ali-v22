@@ -13,6 +13,7 @@ const teachers_service_1 = require("./teachers.service");
 const teachers_controller_1 = require("./teachers.controller");
 const user_schema_1 = require("../../schemas/user.schema");
 const teacher_profile_schema_1 = require("../../schemas/teacher-profile.schema");
+const class_group_schema_1 = require("../../schemas/class-group.schema");
 let TeachersModule = class TeachersModule {
 };
 exports.TeachersModule = TeachersModule;
@@ -22,6 +23,7 @@ exports.TeachersModule = TeachersModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
                 { name: teacher_profile_schema_1.TeacherProfile.name, schema: teacher_profile_schema_1.TeacherProfileSchema },
+                { name: class_group_schema_1.ClassGroup.name, schema: class_group_schema_1.ClassGroupSchema },
             ]),
         ],
         providers: [teachers_service_1.TeachersService],

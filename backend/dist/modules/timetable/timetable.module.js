@@ -12,7 +12,6 @@ const mongoose_1 = require("@nestjs/mongoose");
 const timetable_service_1 = require("./timetable.service");
 const timetable_controller_1 = require("./timetable.controller");
 const timetable_schema_1 = require("../../schemas/timetable.schema");
-const class_group_schema_1 = require("../../schemas/class-group.schema");
 let TimetableModule = class TimetableModule {
 };
 exports.TimetableModule = TimetableModule;
@@ -21,7 +20,6 @@ exports.TimetableModule = TimetableModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: timetable_schema_1.TimetableEntry.name, schema: timetable_schema_1.TimetableEntrySchema },
-                { name: class_group_schema_1.ClassGroup.name, schema: class_group_schema_1.ClassGroupSchema },
             ]),
         ],
         providers: [timetable_service_1.TimetableService],

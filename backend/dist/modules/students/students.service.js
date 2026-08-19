@@ -18,13 +18,15 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const student_profile_schema_1 = require("../../schemas/student-profile.schema");
 const user_schema_1 = require("../../schemas/user.schema");
+const class_group_schema_1 = require("../../schemas/class-group.schema");
 const config_1 = require("@nestjs/config");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 let StudentsService = class StudentsService {
-    constructor(studentProfileModel, userModel, configService) {
+    constructor(studentProfileModel, userModel, classGroupModel, configService) {
         this.studentProfileModel = studentProfileModel;
         this.userModel = userModel;
+        this.classGroupModel = classGroupModel;
         this.configService = configService;
     }
     async findAll(query) {
@@ -43,6 +45,10 @@ let StudentsService = class StudentsService {
         const profileMap = new Map(profiles.map((p) => [p.userId.toString(), p]));
         return users.map((u) => {
             const p = profileMap.get(u._id.toString());
+            if (query.classId && mongoose_2.Types.ObjectId.isValid(query.classId)) {
+                if (!p?.currentClassId || p.currentClassId.toString() !== query.classId)
+                    return null;
+            }
             const gradeLevel = p?.academicInfo?.currentGradeLevel || 'Non assigné';
             const matchesLevel = !query.level || gradeLevel.includes(query.level);
             if (!matchesLevel)
@@ -57,6 +63,7 @@ let StudentsService = class StudentsService {
                 avatarUrl: u.avatarUrl,
                 registrationId: p?.studentRegistrationId || `EDU-${u._id.toString().slice(-6).toUpperCase()}`,
                 currentGradeLevel: gradeLevel,
+                currentClassId: p?.currentClassId || null,
                 gpa: p?.academicInfo?.currentGPA || 0,
                 paymentStatus: p?.financialInfo?.accountBalance != null && p.financialInfo.accountBalance < 0 ? 'OVERDUE' : 'PAID',
             };
@@ -143,16 +150,41 @@ let StudentsService = class StudentsService {
             profileUpdate.medicalInfo = dto.medicalInfo;
         if (dto.financialInfo)
             profileUpdate.financialInfo = dto.financialInfo;
+        if (dto.currentClassId !== undefined) {
+            const oldProfile = await this.studentProfileModel.findOne({ userId }).select('currentClassId').lean().exec();
+            const oldClassId = oldProfile?.currentClassId?.toString();
+            const newClassId = dto.currentClassId && mongoose_2.Types.ObjectId.isValid(dto.currentClassId) ? dto.currentClassId : null;
+            if (oldClassId && oldClassId !== newClassId) {
+                await this.classGroupModel.findByIdAndUpdate(oldClassId, {
+                    $pull: { studentIds: new mongoose_2.Types.ObjectId(userId) },
+                }).exec();
+            }
+            if (newClassId) {
+                profileUpdate.currentClassId = new mongoose_2.Types.ObjectId(newClassId);
+                await this.classGroupModel.findByIdAndUpdate(newClassId, {
+                    $addToSet: { studentIds: new mongoose_2.Types.ObjectId(userId) },
+                }).exec();
+            }
+            else {
+                profileUpdate.currentClassId = null;
+            }
+        }
         const profile = await this.studentProfileModel.findOneAndUpdate({ userId }, { $set: profileUpdate }, { new: true, upsert: true }).lean().exec();
         return { message: 'Student updated successfully', user, profile };
     }
     async deleteStudent(userId) {
         if (!mongoose_2.Types.ObjectId.isValid(userId))
             throw new common_1.BadRequestException('Invalid student ID');
+        const profile = await this.studentProfileModel.findOne({ userId }).select('currentClassId').lean().exec();
         const user = await this.userModel.findByIdAndDelete(userId).exec();
         if (!user)
             throw new common_1.NotFoundException('Student not found');
         await this.studentProfileModel.findOneAndDelete({ userId }).exec();
+        if (profile?.currentClassId) {
+            await this.classGroupModel.findByIdAndUpdate(profile.currentClassId, {
+                $pull: { studentIds: new mongoose_2.Types.ObjectId(userId) },
+            }).exec();
+        }
         return { message: `Student ${user.firstName} ${user.lastName} deleted successfully` };
     }
 };
@@ -161,7 +193,9 @@ exports.StudentsService = StudentsService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(student_profile_schema_1.StudentProfile.name)),
     __param(1, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
+    __param(2, (0, mongoose_1.InjectModel)(class_group_schema_1.ClassGroup.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         mongoose_2.Model,
         config_1.ConfigService])
 ], StudentsService);

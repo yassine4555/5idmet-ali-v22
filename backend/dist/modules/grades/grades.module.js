@@ -12,7 +12,6 @@ const mongoose_1 = require("@nestjs/mongoose");
 const grades_service_1 = require("./grades.service");
 const grades_controller_1 = require("./grades.controller");
 const grade_schema_1 = require("../../schemas/grade.schema");
-const student_profile_schema_1 = require("../../schemas/student-profile.schema");
 let GradesModule = class GradesModule {
 };
 exports.GradesModule = GradesModule;
@@ -21,7 +20,6 @@ exports.GradesModule = GradesModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: grade_schema_1.Grade.name, schema: grade_schema_1.GradeSchema },
-                { name: student_profile_schema_1.StudentProfile.name, schema: student_profile_schema_1.StudentProfileSchema },
             ]),
         ],
         providers: [grades_service_1.GradesService],

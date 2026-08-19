@@ -12,22 +12,50 @@ export class GradesService {
     if (filter.studentId && Types.ObjectId.isValid(filter.studentId)) q.studentId = new Types.ObjectId(filter.studentId);
     if (filter.classId && Types.ObjectId.isValid(filter.classId)) q.classId = new Types.ObjectId(filter.classId);
     if (filter.subject) q.subject = filter.subject;
-    return this.gradeModel.find(q).lean().exec();
+
+    return this.gradeModel
+      .find(q)
+      .populate('studentId', 'firstName lastName email')
+      .populate('classId', 'name level')
+      .populate('teacherId', 'firstName lastName')
+      .lean()
+      .exec();
   }
 
   async get(id: string) {
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid grade ID');
-    const g = await this.gradeModel.findById(id).lean().exec();
+    const g = await this.gradeModel
+      .findById(id)
+      .populate('studentId', 'firstName lastName email')
+      .populate('classId', 'name level')
+      .populate('teacherId', 'firstName lastName')
+      .lean()
+      .exec();
     if (!g) throw new NotFoundException('Grade not found');
     return g;
   }
 
-  async create(dto: { studentId: string; classId: string; subject: string; type: string; score: number; maxScore?: number; teacherId?: string; date?: string; comment?: string }) {
+  async create(dto: {
+    studentId: string;
+    classId: string;
+    subject: string;
+    type: string;
+    score: number;
+    maxScore?: number;
+    teacherId?: string;
+    date?: string;
+    comment?: string;
+    institutionId?: string;
+  }) {
     if (!Types.ObjectId.isValid(dto.studentId)) throw new BadRequestException('Invalid student ID');
     if (!Types.ObjectId.isValid(dto.classId)) throw new BadRequestException('Invalid class ID');
 
+    const institutionId = dto.institutionId && Types.ObjectId.isValid(dto.institutionId)
+      ? new Types.ObjectId(dto.institutionId)
+      : new Types.ObjectId('000000000000000000000001');
+
     const grade = await this.gradeModel.create({
-      institutionId: new Types.ObjectId('000000000000000000000001'),
+      institutionId,
       studentId: new Types.ObjectId(dto.studentId),
       classId: new Types.ObjectId(dto.classId),
       subject: dto.subject,

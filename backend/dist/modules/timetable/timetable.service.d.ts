@@ -24,6 +24,7 @@ export declare class TimetableService {
         endTime: string;
         location?: string;
         notes?: string;
+        institutionId?: string;
     }): Promise<{
         message: string;
         entry: import("mongoose").Document<unknown, {}, TimetableEntry, {}, {}> & TimetableEntry & Required<{

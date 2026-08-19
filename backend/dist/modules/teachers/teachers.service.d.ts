@@ -1,10 +1,12 @@
 import { Model, Types } from 'mongoose';
 import { User } from '../../schemas/user.schema';
 import { TeacherProfile } from '../../schemas/teacher-profile.schema';
+import { ClassGroup } from '../../schemas/class-group.schema';
 export declare class TeachersService {
     private userModel;
     private teacherProfileModel;
-    constructor(userModel: Model<User>, teacherProfileModel: Model<TeacherProfile>);
+    private classGroupModel;
+    constructor(userModel: Model<User>, teacherProfileModel: Model<TeacherProfile>, classGroupModel: Model<ClassGroup>);
     findAll(query: {
         search?: string;
     }): Promise<{
@@ -13,12 +15,14 @@ export declare class TeachersService {
         lastName: string;
         email: string;
         phone: string;
+        status: string;
         avatarUrl: string;
         profile: import("mongoose").FlattenMaps<TeacherProfile> & Required<{
             _id: Types.ObjectId;
         }> & {
             __v: number;
         };
+        assignedClasses: any[];
     }[]>;
     getById(id: string): Promise<{
         user: import("mongoose").FlattenMaps<User> & Required<{
@@ -31,6 +35,11 @@ export declare class TeachersService {
         }> & {
             __v: number;
         };
+        assignedClasses: (import("mongoose").FlattenMaps<ClassGroup> & Required<{
+            _id: Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
     }>;
     createTeacher(dto: {
         firstName: string;
@@ -42,6 +51,7 @@ export declare class TeachersService {
         personalInfo?: any;
     }): Promise<{
         message: string;
+        tempPassword: string;
         user: {
             id: Types.ObjectId;
             firstName: string;

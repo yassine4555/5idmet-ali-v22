@@ -8,12 +8,14 @@ export declare class TeachersController {
         lastName: string;
         email: string;
         phone: string;
+        status: string;
         avatarUrl: string;
         profile: import("mongoose").FlattenMaps<import("../../schemas/teacher-profile.schema").TeacherProfile> & Required<{
             _id: import("mongoose").Types.ObjectId;
         }> & {
             __v: number;
         };
+        assignedClasses: any[];
     }[]>;
     getById(id: string): Promise<{
         user: import("mongoose").FlattenMaps<import("../../schemas/user.schema").User> & Required<{
@@ -26,6 +28,11 @@ export declare class TeachersController {
         }> & {
             __v: number;
         };
+        assignedClasses: (import("mongoose").FlattenMaps<import("../../schemas/class-group.schema").ClassGroup> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
     }>;
     create(body: {
         firstName: string;
@@ -37,6 +44,7 @@ export declare class TeachersController {
         personalInfo?: any;
     }): Promise<{
         message: string;
+        tempPassword: string;
         user: {
             id: import("mongoose").Types.ObjectId;
             firstName: string;

@@ -1,21 +1,46 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { RoadmapStepper } from './RoadmapStepper';
-import { Users, BookOpen, DollarSign, Award, CheckSquare, Calendar as CalendarIcon, Clock, ArrowUpRight } from 'lucide-react';
-
+import { Users, BookOpen, DollarSign, Award, CheckSquare, Calendar as CalendarIcon, Clock, ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { studentsApi, teachersApi, classesApi, financeApi } from '../api/client';
 
 export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({
+    students: 0,
+    teachers: 0,
+    classes: 0,
+    financeTotal: 0,
+  });
+
+  useEffect(() => {
+    Promise.all([
+      studentsApi.list().catch(() => []),
+      teachersApi.list().catch(() => []),
+      classesApi.list().catch(() => []),
+      financeApi.summary().catch(() => null),
+    ]).then(([stList, tcList, clList, finSum]) => {
+      setCounts({
+        students: stList?.length || 0,
+        teachers: tcList?.length || 0,
+        classes: clList?.length || 0,
+        financeTotal: finSum?.totalCollected || 0,
+      });
+      setLoading(false);
+    });
+  }, []);
+
   const stats = [
-    { title: 'Total Étudiants', value: '1,248', change: '+12%', icon: Users, color: '#4F46E5' },
-    { title: 'Classes & Formations', value: '42', change: '+4', icon: BookOpen, color: '#06B6D4' },
-    { title: 'Taux de Réussite', value: '94.2%', change: '+3.5%', icon: Award, color: '#10B981' },
-    { title: 'Encaissements Mois', value: '118,400 €', change: '83%', icon: DollarSign, color: '#F59E0B' },
+    { title: 'Total Étudiants', value: loading ? '—' : counts.students.toString(), change: '+Actifs', icon: Users, color: '#4F46E5' },
+    { title: 'Enseignants', value: loading ? '—' : counts.teachers.toString(), change: 'Actifs', icon: BookOpen, color: '#06B6D4' },
+    { title: 'Classes & Groupes', value: loading ? '—' : counts.classes.toString(), change: 'Ouvertes', icon: Award, color: '#10B981' },
+    { title: 'Encaissements', value: loading ? '—' : `${counts.financeTotal.toLocaleString('fr-FR')} €`, change: '100% à jour', icon: DollarSign, color: '#F59E0B' },
   ];
 
   const tasks = [
-    { id: 1, title: 'Validation des bulletins T2 - Terminales S1', assignee: 'Mme. Bernard', deadline: 'Aujourd hui 17:00', done: false },
-    { id: 2, title: 'Envoi relances factures en retard (14 relances)', assignee: 'Service Finance', deadline: 'Demain', done: true },
+    { id: 1, title: 'Validation des bulletins T2 - Terminales S1', assignee: 'Mme. Bernard', deadline: 'Aujourd\'hui 17:00', done: false },
+    { id: 2, title: 'Envoi relances factures en retard', assignee: 'Service Finance', deadline: 'Demain', done: true },
     { id: 3, title: 'Génération certificats de scolarité L1', assignee: 'Secrétariat', deadline: '14 Août', done: false },
   ];
 
@@ -39,14 +64,14 @@ export const AdminDashboard: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>{stat.title}</span>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon size={20} />
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Icon size={20} />}
                 </div>
               </div>
               <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>
                 {stat.value}
               </div>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10B981', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <ArrowUpRight size={14} /> {stat.change} ce trimestre
+                <ArrowUpRight size={14} /> {stat.change}
               </div>
             </div>
           );

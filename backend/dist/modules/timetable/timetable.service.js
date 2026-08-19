@@ -27,12 +27,22 @@ let TimetableService = class TimetableService {
             q.classId = new mongoose_2.Types.ObjectId(filter.classId);
         if (filter.teacherId && mongoose_2.Types.ObjectId.isValid(filter.teacherId))
             q.teacherId = new mongoose_2.Types.ObjectId(filter.teacherId);
-        return this.timetableModel.find(q).lean().exec();
+        return this.timetableModel
+            .find(q)
+            .populate('classId', 'name level')
+            .populate('teacherId', 'firstName lastName email')
+            .lean()
+            .exec();
     }
     async get(id) {
         if (!mongoose_2.Types.ObjectId.isValid(id))
             throw new common_1.BadRequestException('Invalid timetable entry ID');
-        const e = await this.timetableModel.findById(id).lean().exec();
+        const e = await this.timetableModel
+            .findById(id)
+            .populate('classId', 'name level')
+            .populate('teacherId', 'firstName lastName email')
+            .lean()
+            .exec();
         if (!e)
             throw new common_1.NotFoundException('Timetable entry not found');
         return e;
@@ -42,8 +52,11 @@ let TimetableService = class TimetableService {
             throw new common_1.BadRequestException('Invalid class ID');
         if (!mongoose_2.Types.ObjectId.isValid(dto.teacherId))
             throw new common_1.BadRequestException('Invalid teacher ID');
+        const institutionId = dto.institutionId && mongoose_2.Types.ObjectId.isValid(dto.institutionId)
+            ? new mongoose_2.Types.ObjectId(dto.institutionId)
+            : new mongoose_2.Types.ObjectId('000000000000000000000001');
         const entry = await this.timetableModel.create({
-            institutionId: new mongoose_2.Types.ObjectId('000000000000000000000001'),
+            institutionId,
             classId: new mongoose_2.Types.ObjectId(dto.classId),
             teacherId: new mongoose_2.Types.ObjectId(dto.teacherId),
             subject: dto.subject,

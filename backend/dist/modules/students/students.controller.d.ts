@@ -12,6 +12,7 @@ export declare class StudentsController {
         avatarUrl: string;
         registrationId: string;
         currentGradeLevel: string;
+        currentClassId: import("mongoose").Types.ObjectId;
         gpa: number;
         paymentStatus: string;
     }[]>;
@@ -61,6 +62,7 @@ export declare class StudentsController {
         lastName?: string;
         phone?: string;
         status?: string;
+        currentClassId?: string | null;
         personalInfo?: any;
         academicInfo?: any;
         medicalInfo?: any;

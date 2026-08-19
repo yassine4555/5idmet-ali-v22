@@ -10,6 +10,7 @@ exports.ClassesModule = void 0;
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const class_group_schema_1 = require("../../schemas/class-group.schema");
+const student_profile_schema_1 = require("../../schemas/student-profile.schema");
 const classes_controller_1 = require("./classes.controller");
 const classes_service_1 = require("./classes.service");
 let ClassesModule = class ClassesModule {
@@ -18,7 +19,10 @@ exports.ClassesModule = ClassesModule;
 exports.ClassesModule = ClassesModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: class_group_schema_1.ClassGroup.name, schema: class_group_schema_1.ClassGroupSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: class_group_schema_1.ClassGroup.name, schema: class_group_schema_1.ClassGroupSchema },
+                { name: student_profile_schema_1.StudentProfile.name, schema: student_profile_schema_1.StudentProfileSchema },
+            ]),
         ],
         controllers: [classes_controller_1.ClassesController],
         providers: [classes_service_1.ClassesService],

@@ -26,8 +26,49 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
         this.configService = configService;
     }
+    async signup(dto) {
+        const emailLower = dto.email.trim().toLowerCase();
+        const existingUser = await this.userModel.findOne({ email: emailLower }).exec();
+        if (existingUser) {
+            throw new common_1.BadRequestException('A user with this email address already exists');
+        }
+        if (!dto.password || dto.password.length < 6) {
+            throw new common_1.BadRequestException('Password must be at least 6 characters long');
+        }
+        const institutionId = dto.institutionId && mongoose_2.Types.ObjectId.isValid(dto.institutionId)
+            ? new mongoose_2.Types.ObjectId(dto.institutionId)
+            : new mongoose_2.Types.ObjectId('000000000000000000000001');
+        const passwordHash = await bcrypt.hash(dto.password, 10);
+        const role = dto.role || user_schema_1.UserRole.INSTITUTION_ADMIN;
+        const user = await this.userModel.create({
+            institutionId,
+            firstName: dto.firstName.trim(),
+            lastName: dto.lastName.trim(),
+            email: emailLower,
+            passwordHash,
+            role,
+            phone: dto.phone,
+            status: 'ACTIVE',
+        });
+        const payload = { sub: user._id, email: user.email, role: user.role, institutionId: user.institutionId };
+        const accessToken = this.jwtService.sign(payload);
+        return {
+            message: 'Account created successfully',
+            accessToken,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                institutionId: user.institutionId,
+                avatarUrl: user.avatarUrl,
+            },
+        };
+    }
     async login(email, pass, role) {
-        const user = await this.userModel.findOne({ email }).select('+passwordHash').exec();
+        const emailLower = email.trim().toLowerCase();
+        const user = await this.userModel.findOne({ email: emailLower }).select('+passwordHash').exec();
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
@@ -38,6 +79,7 @@ let AuthService = class AuthService {
         }
         const payload = { sub: user._id, email: user.email, role: user.role, institutionId: user.institutionId };
         return {
+            message: 'Logged in successfully',
             accessToken: this.jwtService.sign(payload),
             user: {
                 id: user._id,
@@ -50,23 +92,50 @@ let AuthService = class AuthService {
             },
         };
     }
+    async getProfile(userId) {
+        if (!mongoose_2.Types.ObjectId.isValid(userId)) {
+            throw new common_1.BadRequestException('Invalid user ID');
+        }
+        const user = await this.userModel.findById(userId).select('-passwordHash').lean().exec();
+        if (!user) {
+            throw new common_1.NotFoundException('User profile not found');
+        }
+        return {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role,
+            institutionId: user.institutionId,
+            phone: user.phone,
+            status: user.status,
+            avatarUrl: user.avatarUrl,
+        };
+    }
     async parentSsoLogin(parentToken, parentUserId, email) {
         let user = await this.userModel.findOne({ parentAppUserId: parentUserId }).exec();
         if (!user) {
             user = await this.userModel.create({
                 parentAppUserId: parentUserId,
-                email,
+                email: email.trim().toLowerCase(),
                 firstName: 'ParentUser',
                 lastName: 'Integrated',
                 passwordHash: 'SSO_DELEGATED',
-                role: user_schema_1.UserRole.STUDENT,
-                institutionId: '65c123456789012345678901',
+                role: user_schema_1.UserRole.PARENT,
+                institutionId: new mongoose_2.Types.ObjectId('000000000000000000000001'),
             });
         }
         const payload = { sub: user._id, email: user.email, role: user.role, institutionId: user.institutionId, isParentSSO: true };
         return {
             accessToken: this.jwtService.sign(payload),
-            user,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                institutionId: user.institutionId,
+            },
         };
     }
 };

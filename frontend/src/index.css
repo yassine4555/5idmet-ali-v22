@@ -215,26 +215,30 @@ body {
   animation: spin 1s linear infinite;
 }
 
-/* App Shell: Sidebar + Main layout */
+/* App Shell: Sidebar on the left + Main layout on the right */
 .app-shell {
   display: flex;
-  align-items: stretch;
-  gap: 20px;
-  max-width: 1500px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 24px;
+  flex: 1;
 }
 
 .sidebar {
-  width: 252px;
-  min-width: 252px;
+  width: 260px;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px;
+  padding: 20px;
   height: calc(100vh - 48px);
   position: sticky;
   top: 24px;
+  flex-shrink: 0;
 }
 
 .sidebar .brand {
@@ -276,6 +280,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow-y: auto;
 }
 
 .nav-item {
@@ -308,10 +313,14 @@ body {
 .role-select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-surface-elevated); font-weight:700 }
 
 /* Main content area adjustments */
-.main-content { flex: 1; }
+.main-content {
+  flex: 1;
+  min-width: 0; /* Ensures flex container allows content to shrink properly */
+  width: 100%;
+}
 
 .main-content > * {
-  max-width: 1180px;
+  max-width: 100%;
 }
 
 .card-glass table {
@@ -351,10 +360,11 @@ body {
   outline: none;
 }
 
-@media (max-width: 1200px) {
+/* Mobile responsive collapse only below 768px */
+@media (max-width: 768px) {
   .app-shell {
-    display: block;
-    padding: 14px;
+    flex-direction: column;
+    padding: 12px;
   }
 
   .sidebar {

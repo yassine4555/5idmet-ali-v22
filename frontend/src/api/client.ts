@@ -1,15 +1,41 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Intercept requests to attach JWT Authorization Bearer header
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('edupro_jwt_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ─── Auth API ───────────────────────────────────────────────────────────────
+export const authApi = {
+  login: (data: { email: string; password: string; role?: string }) =>
+    api.post('/api/v1/auth/login', data).then((r) => r.data),
+
+  signup: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: string;
+    phone?: string;
+  }) => api.post('/api/v1/auth/signup', data).then((r) => r.data),
+
+  getMe: () => api.get('/api/v1/auth/me').then((r) => r.data),
+};
+
 // ─── Students ───────────────────────────────────────────────────────────────
 export const studentsApi = {
-  list: (params?: { search?: string; status?: string; level?: string }) =>
+  list: (params?: { search?: string; status?: string; level?: string; classId?: string }) =>
     api.get('/api/v1/students', { params }).then((r) => r.data),
 
   getProfile: (id: string) =>
@@ -25,6 +51,10 @@ export const studentsApi = {
 
   update: (id: string, data: Record<string, any>) =>
     api.put(`/api/v1/students/${id}`, data).then((r) => r.data),
+
+  /** Enroll a student into a class (or pass null to un-enroll) */
+  enroll: (studentId: string, classId: string | null) =>
+    api.put(`/api/v1/students/${studentId}`, { currentClassId: classId }).then((r) => r.data),
 
   delete: (id: string) =>
     api.delete(`/api/v1/students/${id}`).then((r) => r.data),
@@ -73,6 +103,10 @@ export const classesApi = {
   update: (id: string, data: Record<string, any>) =>
     api.put(`/api/v1/classes/${id}`, data).then((r) => r.data),
 
+  /** Assign or change the main teacher for a class */
+  setMainTeacher: (classId: string, teacherId: string | null) =>
+    api.put(`/api/v1/classes/${classId}`, { mainTeacherId: teacherId }).then((r) => r.data),
+
   delete: (id: string) =>
     api.delete(`/api/v1/classes/${id}`).then((r) => r.data),
 };
@@ -81,6 +115,9 @@ export const classesApi = {
 export const gradesApi = {
   list: (params?: { studentId?: string; classId?: string; subject?: string }) =>
     api.get('/api/v1/grades', { params }).then((r) => r.data),
+
+  get: (id: string) =>
+    api.get(`/api/v1/grades/${id}`).then((r) => r.data),
 
   create: (data: {
     studentId: string;
@@ -92,6 +129,7 @@ export const gradesApi = {
     teacherId?: string;
     date?: string;
     comment?: string;
+    institutionId?: string;
   }) => api.post('/api/v1/grades', data).then((r) => r.data),
 
   update: (id: string, data: Record<string, any>) =>
@@ -114,6 +152,7 @@ export const timetableApi = {
     endTime: string;
     location?: string;
     notes?: string;
+    institutionId?: string;
   }) => api.post('/api/v1/timetable', data).then((r) => r.data),
 
   update: (id: string, data: Record<string, any>) =>
